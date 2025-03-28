@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\UserService;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rules\Password;
+use App\Services\UserService;
 use App\DTO\UserDTO;
 use App\Http\Requests\UserStoreRequest;
+use App\Http\Requests\UserUpdateRequest;
+use App\Exceptions\UserNotFoundException;
+use App\Exceptions\InvalidPasswordException;
 
 class UserController extends Controller
 {
@@ -17,27 +19,22 @@ class UserController extends Controller
         $this->userService = $userService;
     }
 
-    public function index()
+    public function index(): \Illuminate\Http\JsonResponse
     {
         $users = $this->userService->getAllUsers();
 
         return response()->json($users);
     }
 
-    public function store(UserStoreRequest $request)
+    public function store(UserStoreRequest $request): \Illuminate\Http\JsonResponse
     {
-        $userDTO = new UserDTO(
-            $request->input('name'),
-            $request->input('email'),
-            $request->input('password')
-        );
-
+        $userDTO = UserDTO::from($request);
         $user = $this->userService->createUser($userDTO);
 
         return response()->json($user, 201);
     }
 
-    public function show(int $id)
+    public function show(int $id): \Illuminate\Http\JsonResponse
     {
         $user = $this->userService->getUser($id);
 
@@ -48,38 +45,27 @@ class UserController extends Controller
         return response()->json(['message' => 'User not found'], 404);
     }
 
-    public function update(Request $request, int $id)
+    public function update(UserUpdateRequest $request, int $id): \Illuminate\Http\JsonResponse
     {
-        $data = $request->validate([
-            'name' => 'nullable|string|max:255',
-            'email' => 'nullable|string|email|max:255|unique:users,email,' . $id,
-            'new_password' => ['nullable', Password::min(8)],
-            'old_password' => ['required', 'confirmed', Password::min(8)],
-        ]);
+        $userDTO = UserDTO::fromUpdateRequest($request);
 
-        $userDTO = new UserDTO(
-            $data['name'] ?? null,
-            $data['email'] ?? null,
-            $data['new_password'],
-        );
-
-        $updated = $this->userService->updateUser($id, $data['old_password'], $userDTO);
-
-        if ($updated) {
-            return response()->json(['message' => 'User updated successfully']);
+        try {
+            $user = $this->userService->updateUser($id, $request->input('old_password'), $userDTO);
+            return response()->json($user);
+        } catch (InvalidPasswordException $e) {
+            return response()->json(['message' => $e->getMessage()], 400);
+        } catch (UserNotFoundException $e) {
+            return response()->json(['message' => $e->getMessage()], 404);
         }
-
-        return response()->json(['message' => 'User not found or update failed'], 404);
     }
 
-    public function destroy(int $id)
+    public function destroy(int $id): \Illuminate\Http\JsonResponse
     {
-        $deleted = $this->userService->deleteUser($id);
-
-        if ($deleted) {
+        try {
+            $this->userService->deleteUser($id);
             return response()->json(['message' => 'User deleted successfully']);
+        } catch (UserNotFoundException $e) {
+            return response()->json(['message' => $e->getMessage()], 404);
         }
-
-        return response()->json(['message' => 'User not found or delete failed'], 404);
     }
 }

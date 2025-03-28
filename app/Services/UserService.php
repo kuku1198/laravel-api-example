@@ -5,6 +5,9 @@ namespace App\Services;
 use App\Repositories\UserRepository;
 use App\DTO\UserDTO;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+use App\Exceptions\UserNotFoundException;
+use App\Exceptions\InvalidPasswordException;
 
 class UserService
 {
@@ -17,26 +20,62 @@ class UserService
 
     public function getAllUsers(): \Illuminate\Database\Eloquent\Collection
     {
-        return $this->userRepository->findAllUsers();
-    }
-
-    public function createUser(userDTO $userDTO): User
-    {
-        return $this->userRepository->createUser($userDTO);
-    }
-
-    public function updateUser(int $id, string $oldPassword, userDTO $userDTO): bool
-    {
-        return $this->userRepository->updateUser($id, $oldPassword, $userDTO);
+        return $this->userRepository->findAll();
     }
 
     public function getUser(int $id): ?User
     {
-        return $this->userRepository->findUserById($id);
+        $user = $this->userRepository->findById($id);
+
+        if ( ! $user) {
+            return null;
+        }
+
+        return $user;
     }
 
+    public function createUser(userDTO $userDTO): User
+    {
+        $userData = $userDTO->toArray();
+        return $this->userRepository->create($userData);
+    }
+
+    /**
+     * @throws InvalidPasswordException
+     * @throws UserNotFoundException
+     */
+    public function updateUser(int $id, string $oldPassword, userDTO $userDTO): User
+    {
+        $user = $this->userRepository->findById($id);
+
+        if ( ! $user) {
+            throw new UserNotFoundException("User not found");
+        }
+
+        if ( ! Hash::check($oldPassword, $user->password)) {
+            throw new InvalidPasswordException("Invalid password");
+        }
+
+        $updateData = collect($userDTO->toArray())
+            ->reject(fn($value) => is_null($value))
+            ->toArray();
+
+        $this->userRepository->update($id, $updateData);
+
+        return $this->userRepository->findById($id);
+    }
+
+    /**
+     * @throws UserNotFoundException
+     */
     public function deleteUser(int $id): bool
     {
-        return $this->userRepository->deleteUser($id);
+        $user = $this->userRepository->findById($id);
+
+        if ( ! $user) {
+            throw new UserNotFoundException("User not found");
+        }
+
+        return $this->userRepository->delete($id);
     }
 }

@@ -2,34 +2,26 @@
 
 namespace App\DTO;
 
-class UserDTO
+use Spatie\LaravelData\Data;
+use App\Http\Requests\UserUpdateRequest;
+
+class UserDTO extends Data
 {
-    private ?string $name;
-    private ?string $email;
-    private ?string $password;
-
     public function __construct(
-        ?string $name = null,
-        ?string $email = null,
-        ?string $password = null,
+        public readonly ?string $name = null,
+        public readonly ?string $email = null,
+        public readonly ?string $password = null,
     ) {
-        $this->name = $name;
-        $this->email = $email;
-        $this->password = $password;
     }
 
-    public function getName(): ?string
+    public static function fromUpdateRequest(UserUpdateRequest $request): self
     {
-        return $this->name;
-    }
+        $data = [
+            'name' => $request->validated('name'),
+            'email' => $request->validated('email'),
+            'password' => $request->validated('new_password')
+        ];
 
-    public function getEmail(): ?string
-    {
-        return $this->email;
-    }
-
-    public function getPassword(): string
-    {
-        return $this->password;
+        return self::from($data);
     }
 }

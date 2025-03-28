@@ -2,34 +2,26 @@
 
 namespace App\Repositories;
 
-use App\DTO\UserDTO;
 use App\Models\User;
-use Illuminate\Support\Facades\Hash;
 
-class UserRepository
+class UserRepository implements UserRepositoryInterface
 {
-    public function findAllUsers(): \Illuminate\Database\Eloquent\Collection
+    public function findAll(): \Illuminate\Database\Eloquent\Collection
     {
         return User::all();
     }
 
-    public function findUserById(int $id): ?User
+    public function findById(int $id): ?User
     {
         return User::find($id);
     }
 
-    public function createUser(UserDTO $userDTO): User
+    public function create(array $data): User
     {
-        $user = User::create([
-            'name' => $userDTO->getName(),
-            'email' => $userDTO->getEmail(),
-            'password' => $userDTO->getPassword()
-        ]);
-
-        return $user;
+        return User::create($data);
     }
 
-    public function updateUser(int $id, string $oldPassword, UserDTO $userDTO): bool
+    public function update(int $id, array $data): bool
     {
         $user = User::find($id);
 
@@ -37,23 +29,17 @@ class UserRepository
             return false;
         }
 
-        if ( ! Hash::check($oldPassword, $user->password)) {
-            throw new \InvalidArgumentException("Invalid Password", 400);
-        }
-
-        return $user->update(array_filter([
-            'name' => $userDTO->getName(),
-            'email' => $userDTO->getEmail(),
-            'password' => $userDTO->getPassword(),
-        ], fn($value) => ! is_null($value)));
+        return $user->update($data);
     }
 
-    public function deleteUser(int $id): bool
+    public function delete(int $id): bool
     {
         $user = User::find($id);
-        if ($user) {
-            return $user->delete();
+
+        if ( ! $user) {
+            return false;
         }
-        return false;
+
+        return $user->delete();
     }
 }
